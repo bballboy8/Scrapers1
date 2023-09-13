@@ -1,8 +1,10 @@
+import json
 from threading import Lock
 import time
+import pytz
 import requests
 from bs4 import BeautifulSoup
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import concurrent.futures
 from tqdm import tqdm
 from random import uniform
@@ -25,14 +27,19 @@ def save_to_postgresql(data_list, table_name):
         )
 
         cursor = conn.cursor()
-
         for data in data_list:
             columns = ", ".join(data.keys())
-            values = ", ".join([f"'{v}'" for v in data.values()])
+            placeholders = ", ".join(["%s"] * len(data))
 
-            query = f"INSERT INTO {table_name} ({columns}) VALUES ({values})"
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
 
-            cursor.execute(query, list(data.values()))
+            # Convert data values to a list while handling JSON serialization
+            values = [
+                json.dumps(v) if isinstance(v, (dict, list)) else v
+                for v in data.values()
+            ]
+
+            cursor.execute(query, values)
 
         conn.commit()
 
@@ -42,6 +49,7 @@ def save_to_postgresql(data_list, table_name):
     except Exception as e:
         print(f"An error occurred while saving to the database: {e}")
         conn.rollback()
+        raise Exception
 
 
 def increment_request_counter():
@@ -54,56 +62,65 @@ def increment_request_counter():
 
 
 def get_team_game_stats(soup, team_name):
-    game_stats = []
-    h2_tag = soup.find("h2", string=f"{team_name} Basic and Advanced Stats")
-    if not h2_tag:
+    all_game_stats = []
+    h2_tags = soup.find_all("h2", string=f"{team_name} Basic and Advanced Stats")
+
+    if not h2_tags:
         return None
 
-    table_tag = h2_tag.find_next("table")
-    if not table_tag:
-        return None
+    for h2_tag in h2_tags:
+        # Find the next two tables after this h2 tag
+        next_two_tables = h2_tag.find_all_next("table", limit=8)
 
-    type_tag = table_tag.find("th", {"class": "over_header", "colspan": True})
-    if type_tag:
-        stats_type = type_tag.text.strip()
-    else:
-        stats_type = "Unknown"
+        for table_tag in next_two_tables:
+            caption = table_tag.find("caption").text
+            if not table_tag:
+                continue
 
-    header_tags = table_tag.find_all("th", {"scope": "col"})
-    headers = [tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs]
+            type_tag = table_tag.find("th", {"class": "over_header", "colspan": True})
+            stats_type = type_tag.text.strip() if type_tag else "Unknown"
 
-    row_tags = table_tag.find_all("tr")
-    for row_tag in row_tags[1:]:  # Skip the header row
-        row_data = {"type": stats_type}
-        cell_tags = row_tag.find_all(["th", "td"])
-        for header, cell_tag in zip(headers, cell_tags):
-            row_data[header] = cell_tag.text.strip() if cell_tag.text else None
-        game_stats.append(row_data)
+            header_tags = table_tag.find_all("th", {"scope": "col"})
+            headers = [
+                tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs
+            ]
 
-    return game_stats
+            row_tags = table_tag.find_all("tr", class_=lambda x: x != "thead")
+            for row_tag in row_tags[2:]:  # Skip the header row
+                row_data = {"type": stats_type, "caption": caption}
+                cell_tags = row_tag.find_all(["th", "td"])
+                for header, cell_tag in zip(headers, cell_tags):
+                    row_data[header] = cell_tag.text.strip() if cell_tag.text else None
+                all_game_stats.append(row_data)
+
+    return all_game_stats
 
 
 def get_attendance(soup):
-    # Find the div containing 'Attendance'
-    attendance_div = soup.find(
-        "div", string=lambda text: "Attendance:" in text if text else False
+    # Find the <strong> tag containing 'Attendance'
+    strong_tag = soup.find(
+        "strong", string=lambda text: "Attendance" in text if text else False
     )
 
-    if attendance_div:
-        attendance_str = attendance_div.text
-        # Extract just the numerical part of the attendance
-        attendance_num = int(
-            attendance_str.split("Attendance: ")[1].replace(",", "").strip()
-        )
-        return attendance_num
-    else:
-        return None
+    if strong_tag:
+        # Navigate to its parent <div>
+        attendance_div = strong_tag.find_parent("div")
+        if attendance_div:
+            # Extract just the numerical part of the attendance
+            attendance_str = attendance_div.get_text()
+            attendance_num = int(
+                attendance_str.split("Attendance:")[1]
+                .replace("\xa0", "")
+                .replace(",", "")
+                .strip()
+            )
+            return attendance_num
+    return None
 
 
 def get_teams_from_links(soup):
     # Find the specific 'div' containing the desired links
     scorebox_div = soup.find("div", {"class": "scorebox"})
-    print(scorebox_div)
 
     if scorebox_div is not None:
         # Only look for links within the specific 'div'
@@ -129,7 +146,10 @@ def get_teams_from_links(soup):
 
 def get_team_records(soup):
     # Find divs that contain team records. The actual path may vary based on the page's HTML structure.
-    records_divs = soup.select("#content > div:nth-child(2) > div > div:nth-child(3)")
+    scorebox_div = soup.find("div", {"class": "scorebox"})
+    records_divs = scorebox_div.find_all(
+        "div", string=lambda text: text and "-" in text
+    )
     if len(records_divs) >= 2:
         # Assume the format is 'W-L'
         away_record = records_divs[0].text.split("-")
@@ -158,7 +178,7 @@ def get_team_records(soup):
 
 
 def get_team_scores(soup):
-    scores = soup.find_all("td", class_="score")
+    scores = soup.find_all("div", class_="score")
     if len(scores) >= 2:
         away_score = int(scores[0].text)
         home_score = int(scores[1].text)
@@ -168,9 +188,10 @@ def get_team_scores(soup):
 
 def get_game_location(soup):
     # The actual path may vary based on the page's HTML structure.
-    location_div = soup.select_one(
-        "#content > div:nth-child(2) > div:nth-child(3) > div:nth-child(2)"
-    )
+    scorebox_div = soup.find("div", {"class": "scorebox_meta"})
+    location_div = scorebox_div.find_all(
+        "div", string=lambda text: text and "," in text
+    )[-1]
 
     if location_div:
         return location_div.text
@@ -178,7 +199,32 @@ def get_game_location(soup):
         return None
 
 
-def get_play_by_play(play_by_play_url):
+def get_game_time(soup):
+    # The actual path may vary based on the page's HTML structure.
+    scorebox_div = soup.find("div", {"class": "scorebox_meta"})
+    time_div = scorebox_div.find_all("div", string=lambda text: text and "," in text)[0]
+
+    if time_div:
+        date_format = (
+            "%I:%M %p, %B %d, %Y"  # The format string that matches the date_string
+        )
+
+        local_datetime = datetime.strptime(time_div.text, date_format)
+
+        # Assume the original time is in 'America/New_York' timezone
+        local_timezone = pytz.timezone("America/New_York")
+
+        # Localize the datetime object to the given timezone
+        local_datetime = local_timezone.localize(local_datetime)
+
+        # Convert to UTC
+        utc_datetime = local_datetime.astimezone(pytz.UTC)
+        return utc_datetime
+    else:
+        return None
+
+
+def get_play_by_play(play_by_play_url, away_team, home_team):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
@@ -210,10 +256,10 @@ def get_play_by_play(play_by_play_url):
             if len(cells) == 6:
                 play = {
                     "period": period,
-                    "Time": cells[0].text.strip(),
-                    "Atlanta": cells[1].text.strip(),
-                    "Score": cells[3].text.strip(),
-                    "Chicago": cells[5].text.strip(),
+                    "time": cells[0].text.strip(),
+                    away_team: cells[1].text.strip(),
+                    "score": cells[3].text.strip(),
+                    home_team: cells[5].text.strip(),
                 }
                 play_by_play_data.append(play)
 
@@ -249,12 +295,14 @@ def populate_fields(soup):
     scraped_data["home_score"] = home_score
     location = get_game_location(soup)
     scraped_data["location"] = location
+    game_time = get_game_time(soup)
+    scraped_data["game_time"] = game_time
     play_by_play_link_element = soup.find("a", href=lambda href: href and "pbp" in href)
     if play_by_play_link_element:
         full_url = (
             f"https://www.basketball-reference.com{play_by_play_link_element['href']}"
         )
-        play_by_play_data = get_play_by_play(full_url)
+        play_by_play_data = get_play_by_play(full_url, away_team, home_team)
         scraped_data["play_by_play"] = play_by_play_data
 
     attendance = get_attendance(soup)
@@ -285,14 +333,24 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 print(f"Fetched {date_url}")
                 soup = BeautifulSoup(response.content, "html.parser")
 
+                processed_hrefs = set()
+
                 for a_tag in soup.find_all("a", href=True):
                     href = a_tag["href"]
+                    if "pbp" in href or "shot-chart" in href:
+                        continue
+                    if href not in processed_hrefs:
+                        processed_hrefs.add(href)
+                    else:
+                        continue
+
                     if (
                         "/boxscores/" in href
                         and ".html" in href
                         and len(href) > len("/boxscores/")
                     ):
                         full_url = f"https://www.basketball-reference.com{href}"
+                        print(full_url)
                         game_response = requests.get(full_url, headers=headers)
                         game_soup = BeautifulSoup(game_response.content, "html.parser")
                         game_links.append(full_url)
@@ -323,7 +381,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(2023, 6, 12), end_date=date.today()):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date.today()):
     base_url = "https://www.basketball-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
@@ -337,7 +395,7 @@ def scrape_data(start_date=date(2023, 6, 12), end_date=date.today()):
         )
         date_urls.append(date_url)
         current_date += timedelta(days=1)
-
+    date_urls.reverse()
     for date_url in date_urls:  # Replacing threading with a for loop
         print(f"Fetching and parsing game links for {date_url}")
         game_links, game_data = fetch_and_parse_game_links(date_url)
