@@ -396,7 +396,7 @@ def scrape_data(start_date=date(1975, 10, 23), end_date=date.today()):
         date_urls.append(date_url)
         current_date += timedelta(days=1)
     date_urls.reverse()
-    for date_url in date_urls:  # Replacing threading with a for loop
+    for date_url in tqdm(date_urls):  # Replacing threading with a for loop
         print(f"Fetching and parsing game links for {date_url}")
         game_links, game_data = fetch_and_parse_game_links(date_url)
         save_to_postgresql(game_data, "game")
