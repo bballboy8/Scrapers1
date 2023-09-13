@@ -101,17 +101,25 @@ def get_attendance(soup):
 
 
 def get_teams_from_links(soup):
-    # Find links with specific href patterns for away_team and home_team
-    away_team_link = soup.find(
-        "a", href=lambda href: href and "/teams/" in href and "/2023.html" in href
-    )
-    home_team_link = soup.find(
-        "a", href=lambda href: href and "/teams/" in href and "/2023.html" in href
-    )
+    # Find the specific 'div' containing the desired links
+    scorebox_div = soup.find("div", {"class": "scorebox"})
+    print(scorebox_div)
 
-    if away_team_link and home_team_link:
-        away_team = away_team_link.text
-        home_team = home_team_link.text
+    if scorebox_div is not None:
+        # Only look for links within the specific 'div'
+        away_team_link = scorebox_div.find_all(
+            "a", href=lambda href: href and "/teams/" in href and "/2023.html" in href
+        )[0]
+        home_team_link = scorebox_div.find_all(
+            "a", href=lambda href: href and "/teams/" in href and "/2023.html" in href
+        )[1]
+
+        if away_team_link and home_team_link:
+            away_team = away_team_link.text
+            home_team = home_team_link.text
+        else:
+            away_team = "N/A"
+            home_team = "N/A"
     else:
         away_team = "N/A"
         home_team = "N/A"
@@ -279,10 +287,16 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
 
                 for a_tag in soup.find_all("a", href=True):
                     href = a_tag["href"]
-                    if "/boxscores/" in href and len(href) > len("/boxscores/"):
+                    if (
+                        "/boxscores/" in href
+                        and ".html" in href
+                        and len(href) > len("/boxscores/")
+                    ):
                         full_url = f"https://www.basketball-reference.com{href}"
+                        game_response = requests.get(full_url, headers=headers)
+                        game_soup = BeautifulSoup(game_response.content, "html.parser")
                         game_links.append(full_url)
-                        game_info = populate_fields(soup)
+                        game_info = populate_fields(game_soup)
                         game_data.append(game_info)
 
                 # Successfully fetched and parsed the data, so break out of the loop
@@ -309,7 +323,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def generate_basketball_game_urls(start_date=date(2023, 6, 12), end_date=date.today()):
+def scrape_data(start_date=date(2023, 6, 12), end_date=date.today()):
     base_url = "https://www.basketball-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
@@ -327,6 +341,7 @@ def generate_basketball_game_urls(start_date=date(2023, 6, 12), end_date=date.to
     for date_url in date_urls:  # Replacing threading with a for loop
         print(f"Fetching and parsing game links for {date_url}")
         game_links, game_data = fetch_and_parse_game_links(date_url)
+        save_to_postgresql(game_data, "game")
         all_game_links.extend(game_links)
         all_game_data.extend(game_data)
         print(f"Completed for {date_url}")
@@ -335,6 +350,4 @@ def generate_basketball_game_urls(start_date=date(2023, 6, 12), end_date=date.to
 
 
 if __name__ == "__main__":
-    game_links, game_data = generate_basketball_game_urls()
-    print("Game Links:", game_links)
-    print("Game Data:", game_data)
+    scrape_data()
