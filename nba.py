@@ -243,13 +243,7 @@ def get_play_by_play(play_by_play_url, away_team, home_team):
     for row in soup.select("tr"):
         if row.get("class") == ["thead"] and row.get("id"):
             period_text = row.find("th").text
-            period = int(
-                period_text.replace("st Q", "")
-                .replace("nd Q", "")
-                .replace("rd Q", "")
-                .replace("th Q", "")
-            )
-            continue
+            period = period_text
 
         if row.get("class") != ["thead"]:
             cells = row.find_all("td")
@@ -374,14 +368,14 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
             retries += 1
             if retries > max_retries:
                 print(f"Max retries reached for URL {date_url}.")
-                break
+                raise (Exception)
 
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
 
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date.today()):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2023, 5, 7)):
     base_url = "https://www.basketball-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
