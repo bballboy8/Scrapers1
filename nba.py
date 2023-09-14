@@ -1,14 +1,14 @@
 import json
-from threading import Lock
 import time
 import pytz
 import requests
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta
-import concurrent.futures
 from tqdm import tqdm
 from random import uniform
 import psycopg2
+import os
+from dotenv import load_dotenv
 
 
 # Initialize a global request counter
@@ -17,12 +17,19 @@ request_counter = 0
 
 def save_to_postgresql(data_list, table_name):
     try:
+        host = os.getenv("DB_HOST")
+        database = os.getenv("DB_NAME")
+        user = os.getenv("DB_USER")
+        password = os.getenv("DB_PASSWORD")
+        port = os.getenv("DB_PORT")
+
+        # Establish the connection
         conn = psycopg2.connect(
-            host="datapipelinedatabaseproto.ckdigrzob04s.eu-west-1.rds.amazonaws.com",
-            database="stats_data",
-            user="dataPipelineDbUsername",
-            password="wNxS7*GLqNls8cr31XAV",
-            port="5432",
+            host=host,
+            database=database,
+            user=user,
+            password=password,
+            port=port,
         )
 
         cursor = conn.cursor()
