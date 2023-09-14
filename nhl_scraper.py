@@ -1,7 +1,6 @@
 import requests
 import time
-from datetime import date, timedelta
-from datetime import datetime
+from datetime import date, timedelta, datetime
 import pytz
 from tqdm import tqdm
 from bs4 import BeautifulSoup
@@ -21,6 +20,7 @@ def save_to_postgresql(data_list, table_name):
         )
 
         cursor = conn.cursor()
+        # if table doesn't exist, create it
         for data in data_list:
             columns = ", ".join(data.keys())
             placeholders = ", ".join(["%s"] * len(data))
@@ -171,7 +171,9 @@ def get_game_time(soup):
         date_format = (
             "%B %d, %Y, %I:%M %p"  # The format string that matches the date_string
         )
-
+        # convert above date_format to 
+        #    "%I:%M %p, %B %d, %Y"  
+        # Convert to datetime object
         local_datetime = datetime.strptime(time_div.text, date_format)
 
         # Assume the original time is in 'America/New_York' timezone
@@ -275,19 +277,14 @@ def populate_fields(soup):
     scraped_data["home_score"] = home_score
 
     location = get_game_location(soup)
-    scraped_data["location"] = location
+    game_arena = get_game_arena(soup)
+    scraped_data["location"] = location + " - " + game_arena
     
     game_time = get_game_time(soup)
     scraped_data["game_time"] = game_time
     
-    game_arena = get_game_arena(soup)
-    scraped_data["game_arena"] = game_arena
-    
     game_attendance = get_game_attendance(soup)
-    scraped_data["game_attendance"] = game_attendance
-    
-    game_duration = get_game_duration(soup)
-    scraped_data["game_duration"] = game_duration
+    scraped_data["attendance"] = int(game_attendance.replace(",", ""))
 
     # get all game stats
     away_team_basic_stats = get_team_game_stats(soup, away_team)
@@ -348,7 +345,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
 
 
 def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 6, 16)):
-    base_url = "https://www.basketball-reference.com/boxscores/index.fcgi?"
+    base_url = "https://www.hockey-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
 
@@ -364,8 +361,7 @@ def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 6, 16)):
     date_urls.reverse()
     for date_url in tqdm(date_urls):  # Replacing threading with a for loop
         print(f"Fetching and parsing game links for {date_url}")
-        game_links, game_data = fetch_and_parse_game_links("https://www.hockey-reference.com/boxscores/index.fcgi?month=5&day=7&year=2023")
-        print(game_links, game_data)
+        game_links, game_data = fetch_and_parse_game_links(date_url)
         save_to_postgresql(game_data, "game")
         all_game_links.extend(game_links)
         all_game_data.extend(game_data)
