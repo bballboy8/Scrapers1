@@ -13,7 +13,6 @@ import psycopg2
 
 # Initialize a global request counter
 request_counter = 0
-counter_lock = Lock()
 
 
 def save_to_postgresql(data_list, table_name):
@@ -125,10 +124,10 @@ def get_teams_from_links(soup):
     if scorebox_div is not None:
         # Only look for links within the specific 'div'
         away_team_link = scorebox_div.find_all(
-            "a", href=lambda href: href and "/teams/" in href and "/2023.html" in href
+            "a", href=lambda href: href and "/teams/" in href and ".html" in href
         )[0]
         home_team_link = scorebox_div.find_all(
-            "a", href=lambda href: href and "/teams/" in href and "/2023.html" in href
+            "a", href=lambda href: href and "/teams/" in href and ".html" in href
         )[1]
 
         if away_team_link and home_team_link:
@@ -270,6 +269,7 @@ def populate_fields(soup):
     away_team, home_team = get_teams_from_links(soup)
     scraped_data["away_team"] = away_team
     scraped_data["home_team"] = home_team
+    # input(scraped_data)
 
     # Get wins and losses
     (
@@ -282,15 +282,19 @@ def populate_fields(soup):
     scraped_data["away_team_losses"] = away_team_losses
     scraped_data["home_team_wins"] = home_team_wins
     scraped_data["home_team_losses"] = home_team_losses
+    # input(scraped_data)
 
     # Get scores
     away_score, home_score = get_team_scores(soup)
     scraped_data["away_score"] = away_score
     scraped_data["home_score"] = home_score
+    # input(scraped_data)
     location = get_game_location(soup)
     scraped_data["location"] = location
+    # input(scraped_data)
     game_time = get_game_time(soup)
     scraped_data["game_time"] = game_time
+    # input(scraped_data)
     play_by_play_link_element = soup.find("a", href=lambda href: href and "pbp" in href)
     if play_by_play_link_element:
         full_url = (
@@ -299,14 +303,18 @@ def populate_fields(soup):
         play_by_play_data = get_play_by_play(full_url, away_team, home_team)
         scraped_data["play_by_play"] = play_by_play_data
 
+    # input(scraped_data)
+
     attendance = get_attendance(soup)
     scraped_data["attendance"] = attendance
+    # input(scraped_data)
 
     home_team_game_stats = get_team_game_stats(soup, home_team)
     away_team_game_stats = get_team_game_stats(soup, away_team)
 
     scraped_data["home_team_game_stats"] = home_team_game_stats
     scraped_data["away_team_game_stats"] = away_team_game_stats
+    # input(scraped_data)
 
     return scraped_data
 
@@ -375,7 +383,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2023, 5, 7)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 6, 16)):
     base_url = "https://www.basketball-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
