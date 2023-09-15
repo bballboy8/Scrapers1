@@ -13,23 +13,15 @@ from tqdm import tqdm
 
 def save_to_postgresql(data_list, table_name):
     try:
-        host = os.getenv("DB_HOST")
-        database = os.getenv("DB_NAME")
-        user = os.getenv("DB_USER")
-        password = os.getenv("DB_PASSWORD")
-        port = os.getenv("DB_PORT")
-
-        # Establish the connection
         conn = psycopg2.connect(
-            host=host,
-            database=database,
-            user=user,
-            password=password,
-            port=port,
+            host="datapipelinedatabaseproto.ckdigrzob04s.eu-west-1.rds.amazonaws.com",
+            database="stats_data",
+            user="dataPipelineDbUsername",
+            password="wNxS7*GLqNls8cr31XAV",
+            port="5432",
         )
 
         cursor = conn.cursor()
-        # if table doesn't exist, create it
         for data in data_list:
             columns = ", ".join(data.keys())
             placeholders = ", ".join(["%s"] * len(data))
@@ -65,7 +57,9 @@ def get_teams_from_links(soup):
 
     if scorebox_div:
         # Find all links within the 'div' that match the criteria
-        team_links = scorebox_div.find_all("a", href=lambda href: href and "/teams/" in href and ".htm" in href)
+        team_links = scorebox_div.find_all(
+            "a", href=lambda href: href and "/teams/" in href and ".htm" in href
+        )
 
         if len(team_links) >= 2:
             away_team = team_links[0].text
@@ -83,7 +77,9 @@ def parse_record(record_text):
 
 def get_team_records(soup):
     scorebox_div = soup.find("div", {"class": "scorebox"})
-    records_divs = scorebox_div.find_all("div", string=lambda text: text and "-" in text)
+    records_divs = scorebox_div.find_all(
+        "div", string=lambda text: text and "-" in text
+    )
 
     if len(records_divs) >= 2:
         away_team_wins, away_team_losses = parse_record(records_divs[0].text)
@@ -94,14 +90,17 @@ def get_team_records(soup):
 
 
 def get_team_scores(soup):
-    scores = [int(score.text) if score.text else 0 for score in soup.find_all("div", class_="score")]
+    scores = [
+        int(score.text) if score.text else 0
+        for score in soup.find_all("div", class_="score")
+    ]
     return tuple(scores) if len(scores) >= 2 else (None, None)
 
 
 def get_game_attendance(soup):
-    scorebox_div = soup.find('div', class_='scorebox_meta')
+    scorebox_div = soup.find("div", class_="scorebox_meta")
     if scorebox_div:
-        for div in scorebox_div.find_all('div'):
+        for div in scorebox_div.find_all("div"):
             text = div.get_text(strip=True)
             if text.startswith("Attendance"):
                 game_attendance = text.split(":", 1)[1].strip()
@@ -111,7 +110,7 @@ def get_game_attendance(soup):
 
 def get_game_time(soup):
     # The actual path may vary based on the page's HTML structure.
-    scorebox_divs = soup.find('div', class_='scorebox_meta').find_all('div')
+    scorebox_divs = soup.find("div", class_="scorebox_meta").find_all("div")
 
     # Initialize variables to store date and start time
     game_date = None
@@ -159,17 +158,29 @@ def get_game_time(soup):
         return None
 
 
+def get_game_location(soup):
+    # The actual path may vary based on the page's HTML structure.
+    scorebox_div = soup.find("div", class_="scorebox_meta")
+    if scorebox_div:
+        for div in scorebox_div.find_all("div"):
+            text = div.get_text(strip=True)
+            if text.startswith("Stadium"):
+                location = text.split(":", 1)[1].strip()
+                return location if location else None
+    return None
+
+
 def get_play_by_play(soup):
     # Find the table element by its ID
-    table = soup.find('table', id='pbp')
+    table = soup.find("table", id="pbp")
 
     if not table:
         comments = soup.find_all(string=lambda text: isinstance(text, Comment))
 
         for comment in comments:
-            if 'id=\"pbp\"' in comment:
+            if 'id="pbp"' in comment:
                 soup_temp = BeautifulSoup(comment, "html.parser")
-                table = soup_temp.find('table', id='pbp')
+                table = soup_temp.find("table", id="pbp")
                 break
 
     # Initialize a list to store the dictionaries
@@ -178,7 +189,7 @@ def get_play_by_play(soup):
     # Check if the table is found
     if table:
         # Find all rows in the table's tbody
-        rows = table.tbody.find_all('tr')
+        rows = table.tbody.find_all("tr")
 
         # Iterate through the rows
         for row in rows:
@@ -186,7 +197,7 @@ def get_play_by_play(soup):
             row_data = {}
 
             # Find all cells in the row
-            cells = row.find_all(['th', 'td'])
+            cells = row.find_all(["th", "td"])
 
             if len(cells) != 10:
                 continue
@@ -194,7 +205,7 @@ def get_play_by_play(soup):
             # Iterate through the cells and extract data
             for cell in cells:
                 # Get the column header (data-stat attribute)
-                header = cell.get('data-stat')
+                header = cell.get("data-stat")
 
                 # Add data to the dictionary
                 row_data[header] = cell.get_text(strip=True)
@@ -213,12 +224,10 @@ def scrap_stat_table(table):
         stats_type = type_tag.get_text(strip=True) if type_tag else "Unknown"
 
         header_tags = table.find_all("th", {"scope": "col"})
-        headers = [
-            tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs
-        ]
+        headers = [tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs]
 
         # Find the tbody element within the table
-        tbody = table.find('tbody')
+        tbody = table.find("tbody")
 
         if tbody:
             # Extract all rows from the tbody
@@ -226,14 +235,22 @@ def scrap_stat_table(table):
 
             last_value = {}
 
-            filtered_rows = [row for row in row_tags if not row.has_attr('class') or 'thead' not in row['class']]
+            filtered_rows = [
+                row
+                for row in row_tags
+                if not row.has_attr("class") or "thead" not in row["class"]
+            ]
 
             for row_tag in filtered_rows:  # Skip the header row
                 row_data = {"type": stats_type, "caption": caption}
                 cell_tags = row_tag.find_all(["th", "td"])
                 for header, cell_tag in zip(headers, cell_tags):
                     row_data[header] = cell_tag.get_text(strip=True)
-                    if not row_data[header] and header == "quarter" and header in last_value:
+                    if (
+                        not row_data[header]
+                        and header == "quarter"
+                        and header in last_value
+                    ):
                         row_data[header] = last_value[header]
                     else:
                         last_value[header] = row_data[header]
@@ -244,12 +261,12 @@ def scrap_stat_table(table):
             column_names = []
 
             # Find the column names from the first row (skipping the header row)
-            header_row = table.find('tr', class_='thead onecell')
+            header_row = table.find("tr", class_="thead onecell")
             if header_row:
-                column_names = [th.get_text(strip=True) for th in table.find_all('th')]
+                column_names = [th.get_text(strip=True) for th in table.find_all("th")]
 
             # Iterate through table rows (excluding the header row)
-            for header, row in zip(column_names, table.find_all('tr')[1:]):
+            for header, row in zip(column_names, table.find_all("tr")[1:]):
                 row_data = {"type": stats_type, "caption": caption}
                 cell_tag = row.find("td")
                 # Extract values for each column
@@ -284,6 +301,9 @@ def populate_fields(soup):
     scraped_data["away_score"] = away_score
     scraped_data["home_score"] = home_score
 
+    location = get_game_location(soup)
+    scraped_data["location"] = location
+
     game_time = get_game_time(soup)
     scraped_data["game_time"] = game_time
 
@@ -293,13 +313,15 @@ def populate_fields(soup):
     play_by_play_data = get_play_by_play(soup)
     scraped_data["play_by_play"] = play_by_play_data
 
-    away_team_alternative, home_team_alternative = get_team_name_alternatives(away_team, home_team, soup)
+    away_team_alternative, home_team_alternative = get_team_name_alternatives(
+        away_team, home_team, soup
+    )
 
     all_tables = get_all_tables_from_html(soup)
 
-    away_team_stats_result, home_team_stats_result, stats_result = get_stat_results(all_tables, away_team,
-                                                                                    away_team_alternative, home_team,
-                                                                                    home_team_alternative)
+    away_team_stats_result, home_team_stats_result, stats_result = get_stat_results(
+        all_tables, away_team, away_team_alternative, home_team, home_team_alternative
+    )
 
     # scraped_data["game_stats"] = stats_result
     scraped_data["home_team_game_stats"] = home_team_stats_result
@@ -309,11 +331,11 @@ def populate_fields(soup):
 
 
 def get_all_tables_from_html(soup):
-    all_tables = [table for table in soup.findAll('table') if table.caption]
+    all_tables = [table for table in soup.findAll("table") if table.caption]
     for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-        if 'stats_table' in comment and 'id=\"pbp\"' not in comment:
+        if "stats_table" in comment and 'id="pbp"' not in comment:
             soup_temp = BeautifulSoup(comment, "html.parser")
-            table = soup_temp.find('table')
+            table = soup_temp.find("table")
             if table.caption:
                 all_tables.append(table)
     return all_tables
@@ -321,12 +343,16 @@ def get_all_tables_from_html(soup):
 
 def is_team_in_caption(caption, team_name, team_alternative):
     caption_text = caption.text.strip().lower()
-    return team_name and team_name.strip().lower() in caption_text or (
-            team_alternative and team_alternative.lower() in caption_text.split()
+    return (
+        team_name
+        and team_name.strip().lower() in caption_text
+        or (team_alternative and team_alternative.lower() in caption_text.split())
     )
 
 
-def get_stat_results(all_tables, away_team, away_team_alternative, home_team, home_team_alternative):
+def get_stat_results(
+    all_tables, away_team, away_team_alternative, home_team, home_team_alternative
+):
     away_team_stats_result = []
     home_team_stats_result = []
     stats_result = []
@@ -347,14 +373,14 @@ def get_stat_results(all_tables, away_team, away_team_alternative, home_team, ho
 
 
 def get_team_name_alternatives(away_team, home_team, soup):
-    table = soup.find('table', id='scoring')
+    table = soup.find("table", id="scoring")
     team_name_alternatives = set()
     if not table:
         comments = soup.find_all(string=lambda text: isinstance(text, Comment))
         for comment in comments:
-            if 'id=\"scoring\"' in comment:
+            if 'id="scoring"' in comment:
                 soup_temp = BeautifulSoup(comment, "html.parser")
-                table = soup_temp.find('table')
+                table = soup_temp.find("table")
                 break
     if table:
         # Find all 'td' elements within the 'Tm' column
@@ -396,7 +422,9 @@ def request_url_data(url, max_retries=3):
                 print("Url Fetched!")
                 break
             elif response.status_code == 429:
-                print(f"Rate-limited. Waiting for {int(response.headers['Retry-After'])} before retrying.")
+                print(
+                    f"Rate-limited. Waiting for {int(response.headers['Retry-After'])} before retrying."
+                )
                 time.sleep(int(response.headers["Retry-After"]))
 
                 retries += 1  # Increment the retries count
@@ -423,7 +451,9 @@ def fetch_and_parse_game_links(week_url, base_url):
                     game_response = request_url_data(game_url)
                     if game_response:
                         game_links.append(game_url)
-                        game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                        game_info = populate_fields(
+                            BeautifulSoup(game_response.content, "html.parser")
+                        )
                         game_data.append(game_info)
                     time.sleep(10)
                 except Exception as e:
@@ -439,12 +469,14 @@ def fetch_and_parse_game_links(week_url, base_url):
     return game_links, game_data
 
 
-def scrape_data(start_year=2017, end_year=2022):
+def scrape_data(start_year=1975, end_year=2023):
     base_url = "https://www.pro-football-reference.com"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
 
-    year_urls = [f"{base_url}/years/{year}/" for year in range(start_year, end_year + 1)]
+    year_urls = [
+        f"{base_url}/years/{year}/" for year in range(start_year, end_year + 1)
+    ]
     year_urls.reverse()
 
     for year_url in tqdm(year_urls):  # Replacing threading with a for loop
