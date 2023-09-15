@@ -9,6 +9,19 @@ import json
 import psycopg2
 from psycopg2 import errors
 
+
+# Initialize a global request counter
+request_counter = 0
+
+def increment_request_counter():
+    global request_counter
+    request_counter += 1  # Increment the counter
+    if request_counter >= 10:  # Check if 24 requests have been made
+        print("Waiting 61 seconds...")
+        time.sleep(61)  # Wait for 61 seconds
+        request_counter = 0  # Reset the counter
+
+
 def save_to_postgresql(data_list, table_name):
     try:
         conn = psycopg2.connect(
@@ -20,6 +33,7 @@ def save_to_postgresql(data_list, table_name):
         )
 
         cursor = conn.cursor()
+        # from database get 50 rows of the table where sport='NHL' also convert the game_time to UTC
         # if table doesn't exist, create it
         for data in data_list:
             columns = ", ".join(data.keys())
@@ -179,7 +193,6 @@ def get_game_time(soup):
         #    "%I:%M %p, %B %d, %Y"  
         # Convert to datetime object
         local_datetime = datetime.strptime(time_div.text, date_format)
-
         # Assume the original time is in 'America/New_York' timezone
         local_timezone = pytz.timezone("America/New_York")
 
@@ -313,6 +326,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
             return game_links, game_data
         try:
             response = requests.get(date_url, headers=headers)
+            increment_request_counter()
             if response.status_code == 200:
                 print(f"Fetched {date_url}")
                 soup = BeautifulSoup(response.content, "html.parser")
