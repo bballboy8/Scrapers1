@@ -312,8 +312,6 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
             print(f"Failed to fetch {date_url}. Skipping...")
             return game_links, game_data
         try:
-            session = requests.Session()
-
             response = requests.get(date_url, headers=headers)
             if response.status_code == 200:
                 print(f"Fetched {date_url}")
@@ -331,6 +329,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
 
             elif response.status_code == 429:
                 print(f"Rate-limited. Waiting for 1 hour before retrying.")
+                print(response.text)
                 time.sleep(3600)  # Wait for an hour
 
                 retries += 1  # Increment the retries count
