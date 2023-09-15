@@ -52,6 +52,8 @@ def save_to_postgresql(data_list, table_name):
             # if the data is already in the database, skip it
             except errors.UniqueViolation:
                 print("Data already in database, skipping...")
+                conn.rollback()
+                continue
 
         conn.commit()
 
@@ -61,7 +63,7 @@ def save_to_postgresql(data_list, table_name):
     except Exception as e:
         print(f"An error occurred while saving to the database: {e}")
         conn.rollback()
-        raise Exception
+        cursor.close()
 
 
 
@@ -359,7 +361,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 6, 16)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 5, 31)):
     base_url = "https://www.hockey-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
