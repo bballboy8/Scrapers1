@@ -361,7 +361,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 5, 31)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 6, 16)):
     base_url = "https://www.hockey-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
