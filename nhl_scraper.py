@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from random import uniform
 import json
 import psycopg2
-
+from psycopg2 import errors
 
 def save_to_postgresql(data_list, table_name):
     try:
@@ -33,7 +33,11 @@ def save_to_postgresql(data_list, table_name):
                 for v in data.values()
             ]
 
-            cursor.execute(query, values)
+            try:
+                cursor.execute(query, values)
+            # if the data is already in the database, skip it
+            except errors.UniqueViolation:
+                print("Data already in database, skipping...")
 
         conn.commit()
 
@@ -189,7 +193,7 @@ def get_game_time(soup):
         return None
 
 
-def get_team_game_stats(soup:BeautifulSoup, team_name:str, goalies=0):
+def get_team_game_stats(soup:BeautifulSoup, team_name:str, stats_type, goalies=0):
     all_game_stats = []
     h2_tags = soup.find_all("h2", string=f"{team_name}")
 
@@ -219,8 +223,6 @@ def get_team_game_stats(soup:BeautifulSoup, team_name:str, goalies=0):
             if not table_tag:
                 continue
 
-            type_tag = table_tag.find("th", {"class": "over_header", "colspan": True})
-            stats_type = type_tag.text.strip() if type_tag else "Unknown"
 
             header_tags = table_tag.find_all("th", {"scope": "col"})
             headers = [
@@ -276,9 +278,8 @@ def populate_fields(soup):
     scraped_data["away_score"] = away_score
     scraped_data["home_score"] = home_score
 
-    location = get_game_location(soup)
     game_arena = get_game_arena(soup)
-    scraped_data["location"] = location + " - " + game_arena
+    scraped_data["location"] = game_arena
     
     game_time = get_game_time(soup)
     scraped_data["game_time"] = game_time
@@ -287,12 +288,12 @@ def populate_fields(soup):
     scraped_data["attendance"] = int(game_attendance.replace(",", ""))
 
     # get all game stats
-    away_team_basic_stats = get_team_game_stats(soup, away_team)
-    home_team_basic_stats = get_team_game_stats(soup, home_team)
-    away_team_advance_stats = get_team_game_stats(soup, away_team+ " Advanced")
-    home_team_advance_stats = get_team_game_stats(soup, home_team+ " Advanced")
-    away_team_goalie_stats = get_team_game_stats(soup, "Goalies", 1)
-    home_team_goalie_stats = get_team_game_stats(soup, "Goalies", 2)
+    away_team_basic_stats = get_team_game_stats(soup, away_team, "Basic Box Score Stats")
+    home_team_basic_stats = get_team_game_stats(soup, home_team, "Basic Box Score Stats")
+    away_team_advance_stats = get_team_game_stats(soup, away_team+ " Advanced", "Advanced Box Score Stats")
+    home_team_advance_stats = get_team_game_stats(soup, home_team+ " Advanced", "Advanced Box Score Stats")
+    away_team_goalie_stats = get_team_game_stats(soup, "Goalies", "Goalies Box Score Stats", 1)
+    home_team_goalie_stats = get_team_game_stats(soup, "Goalies", "Goalies Box Score Stats", 2)
 
     scraped_data["home_team_game_stats"] = home_team_basic_stats + home_team_advance_stats + home_team_goalie_stats
     scraped_data["away_team_game_stats"] = away_team_basic_stats + away_team_advance_stats + away_team_goalie_stats
@@ -311,6 +312,8 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
             print(f"Failed to fetch {date_url}. Skipping...")
             return game_links, game_data
         try:
+            session = requests.Session()
+
             response = requests.get(date_url, headers=headers)
             if response.status_code == 200:
                 print(f"Fetched {date_url}")
