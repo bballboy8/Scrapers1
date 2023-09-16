@@ -50,10 +50,11 @@ def save_to_postgresql(data_list, table_name):
             try:
                 cursor.execute(query, values)
             # if the data is already in the database, skip it
-            except errors.UniqueViolation:
+            except:
                 print("Data already in database, skipping...")
                 conn.rollback()
                 continue
+
         conn.commit()
 
         cursor.close()
