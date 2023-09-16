@@ -52,7 +52,8 @@ def save_to_postgresql(data_list, table_name):
             # if the data is already in the database, skip it
             except errors.UniqueViolation:
                 print("Data already in database, skipping...")
-
+                conn.rollback()
+                continue
         conn.commit()
 
         cursor.close()
