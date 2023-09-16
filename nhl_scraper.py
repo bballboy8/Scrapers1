@@ -52,8 +52,6 @@ def save_to_postgresql(data_list, table_name):
             # if the data is already in the database, skip it
             except errors.UniqueViolation:
                 print("Data already in database, skipping...")
-                conn.rollback()
-                continue
 
         conn.commit()
 
@@ -63,7 +61,7 @@ def save_to_postgresql(data_list, table_name):
     except Exception as e:
         print(f"An error occurred while saving to the database: {e}")
         conn.rollback()
-        cursor.close()
+        raise Exception
 
 
 
@@ -155,7 +153,7 @@ def get_game_attendance(soup):
     # get the 2 number of div under scorebox_meta
     location_div = scorebox_div.find_all("div")[2]
     if location_div:
-        return location_div.text.split(":")[1].strip()
+        return int(location_div.text.split(":")[1].strip()).replace(",", "")
     else:
         return None
 
@@ -209,63 +207,67 @@ def get_game_time(soup):
 
 
 def get_team_game_stats(soup:BeautifulSoup, team_name:str, stats_type, goalies=0):
-    all_game_stats = []
-    h2_tags = soup.find_all("h2", string=f"{team_name}")
+    try:
+        all_game_stats = []
+        h2_tags = soup.find_all("h2", string=f"{team_name}")
 
-    if not h2_tags:
-        return None
+        if not h2_tags:
+            return None
 
-    for h2_tag in h2_tags:
-        # Find the next two tables after this h2 tag
-        next_two_tables = h2_tag.find_all_next("table", limit=8)
-        if goalies == 0:
-            pass
-        elif goalies == 1:
-            tables = []
-            for table in next_two_tables:
-                if "Goalies" in table.find("caption").text:
-                    tables.append(table)
-            next_two_tables = [tables[0]]
-        elif goalies == 2:
-            tables = []
-            for table in next_two_tables:
-                if "Goalies" in table.find("caption").text:
-                    tables.append(table)
-            next_two_tables = [tables[1]]
- 
-        for table_tag in next_two_tables:
-            caption = table_tag.find("caption").text
-            if not table_tag:
-                continue
+        for h2_tag in h2_tags:
+            # Find the next two tables after this h2 tag
+            next_two_tables = h2_tag.find_all_next("table", limit=8)
+            if goalies == 0:
+                pass
+            elif goalies == 1:
+                tables = []
+                for table in next_two_tables:
+                    if "Goalies" in table.find("caption").text:
+                        tables.append(table)
+                next_two_tables = [tables[0]]
+            elif goalies == 2:
+                tables = []
+                for table in next_two_tables:
+                    if "Goalies" in table.find("caption").text:
+                        tables.append(table)
+                next_two_tables = [tables[1]]
+    
+            for table_tag in next_two_tables:
+                caption = table_tag.find("caption").text
+                if not table_tag:
+                    continue
 
 
-            header_tags = table_tag.find_all("th", {"scope": "col"})
-            headers = [
-                tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs
-            ]
-            row_tags = table_tag.find_all("tr", class_=lambda x: x != "thead")
-            for row_tag in row_tags[2:]:  # Skip the header row
-                row_data = {"type": stats_type, "caption": caption}
-                cell_tags = row_tag.find_all(["th", "td"])
-                for header, cell_tag in zip(headers, cell_tags):
-                    row_data[header] = cell_tag.text.strip() if cell_tag.text else None                  
-                all_game_stats.append(row_data)
-                try:
-                    if row_data['player'] == 'TOTAL':
-                        final_stats = []
-                        for stat in all_game_stats:
-                            if stat['caption'] == f"{team_name} Table" or stat['caption'] == f"{team_name} Advanced Table":
-                                final_stats.append(stat)
-                        return final_stats
-                except:
-                    pass
-        if goalies != 0:
-            break
-    final_stats = []
-    for stat in all_game_stats:
-        if stat['caption'] == f"{team_name} Table" or stat['caption'] == f"{team_name} Advanced Table":
-            final_stats.append(stat)
-    return final_stats
+                header_tags = table_tag.find_all("th", {"scope": "col"})
+                headers = [
+                    tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs
+                ]
+                row_tags = table_tag.find_all("tr", class_=lambda x: x != "thead")
+                for row_tag in row_tags[2:]:  # Skip the header row
+                    row_data = {"type": stats_type, "caption": caption}
+                    cell_tags = row_tag.find_all(["th", "td"])
+                    for header, cell_tag in zip(headers, cell_tags):
+                        row_data[header] = cell_tag.text.strip() if cell_tag.text else None                  
+                    all_game_stats.append(row_data)
+                    try:
+                        if row_data['player'] == 'TOTAL':
+                            final_stats = []
+                            for stat in all_game_stats:
+                                if stat['caption'] == f"{team_name} Table" or stat['caption'] == f"{team_name} Advanced Table":
+                                    final_stats.append(stat)
+                            return final_stats
+                    except:
+                        pass
+            if goalies != 0:
+                break
+        final_stats = []
+        for stat in all_game_stats:
+            if stat['caption'] == f"{team_name} Table" or stat['caption'] == f"{team_name} Advanced Table":
+                final_stats.append(stat)
+        return final_stats
+    except Exception as e:
+        print(e)
+        return []
 
 def populate_fields(soup):
     scraped_data = {}
@@ -300,7 +302,7 @@ def populate_fields(soup):
     scraped_data["game_time"] = game_time
     
     game_attendance = get_game_attendance(soup)
-    scraped_data["attendance"] = int(game_attendance.replace(",", ""))
+    scraped_data["attendance"] = game_attendance
 
     # get all game stats
     away_team_basic_stats = get_team_game_stats(soup, away_team, "Basic Box Score Stats")
