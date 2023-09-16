@@ -153,7 +153,7 @@ def get_game_attendance(soup):
     # get the 2 number of div under scorebox_meta
     location_div = scorebox_div.find_all("div")[2]
     if location_div:
-        return int(location_div.text.split(":")[1].strip()).replace(",", "")
+        return int(location_div.text.split(":")[1].strip().replace(",", ""))
     else:
         return None
 
