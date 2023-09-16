@@ -7,7 +7,6 @@ from bs4 import BeautifulSoup
 from random import uniform
 import json
 import psycopg2
-from psycopg2 import errors
 
 
 # Initialize a global request counter
@@ -121,7 +120,8 @@ def get_team_records(soup):
             home_team_wins = int(home_record[0])
             home_team_losses = int(home_record[1])
 
-        return away_team_wins, away_team_losses, home_team_wins, home_team_losses
+        try: return away_team_wins, away_team_losses, home_team_wins, home_team_losses
+        except: return None, None, None, None
 
     else:
         return None, None, None, None
@@ -132,7 +132,8 @@ def get_team_scores(soup):
     if len(scores) >= 2:
         away_score = int(scores[0].text)
         home_score = int(scores[1].text)
-        return away_score, home_score
+        try:return away_score, home_score
+        except: return None, None
     return None, None
 
 
@@ -145,7 +146,8 @@ def get_game_location(soup):
     )[1]
 
     if location_div:
-        return location_div.text
+        try:return location_div.text
+        except: return None
     else:
         return None
 
@@ -155,7 +157,10 @@ def get_game_attendance(soup):
     # get the 2 number of div under scorebox_meta
     location_div = scorebox_div.find_all("div")[2]
     if location_div:
-        return int(location_div.text.split(":")[1].strip().replace(",", ""))
+        try:
+            return int(location_div.text.split(":")[1].strip().replace(",", ""))
+        except:
+            return None
     else:
         return None
 
@@ -166,7 +171,8 @@ def get_game_arena(soup):
     # get the 3 number of div under scorebox_meta
     location_div = scorebox_div.find_all("div")[3]
     if location_div:
-        return location_div.text.split(":")[1].strip()
+        try:return location_div.text.split(":")[1].strip()
+        except: return None
     else:
         return None
 
@@ -341,6 +347,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     full_url = f"https://www.hockey-reference.com{link.find('a')['href']}"
                     print(full_url)
                     game_response = requests.get(full_url, headers=headers)
+                    increment_request_counter()
                     game_links.append(full_url)
                     game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
                     game_data.append(game_info)
@@ -356,16 +363,17 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     print(f"Max retries reached for URL {date_url}.")
                     break
         except Exception as e:
-           print(e)
-           print(f"Failed to fetch {date_url}. Retrying...")
-           retries += 1
-           time.sleep(5)
+            import traceback
+            print(traceback.format_exc())
+            print(f"Failed to fetch {date_url}. Retrying...")
+            retries += 1
+            time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
     
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 6, 16)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 30)):
     base_url = "https://www.hockey-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
