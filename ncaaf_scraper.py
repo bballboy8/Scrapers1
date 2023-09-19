@@ -269,12 +269,13 @@ def populate_fields(soup):
     home_team_stats_result = []
     all_stats = ["Rushing &amp; Receiving", "Passing", "Defense &amp; Fumbles", "Kick &amp; Punt Returns", "Kicking &amp; Punting", "Scoring"]
     for stat in all_stats:
-        home_team_stats_result.extend(get_team_game_stats(soup, stat, home_team, f"{home_team} {stat} Stats"))
+        try:home_team_stats_result.extend(get_team_game_stats(soup, stat, home_team, f"{home_team} {stat} Stats"))
+        except: continue
     
     away_team_stats_result = []
     for stat in all_stats:
-        away_team_stats_result.extend(get_team_game_stats(soup, stat, away_team, f"{away_team} {stat} Stats"))
-
+        try:away_team_stats_result.extend(get_team_game_stats(soup, stat, away_team, f"{away_team} {stat} Stats"))
+        except: continue
     
     scraped_data["home_team_game_stats"] = home_team_stats_result
     scraped_data["away_team_game_stats"] = away_team_stats_result
