@@ -130,22 +130,22 @@ def get_game_attendance(soup):
 
 def get_game_time(soup):
     # The actual path may vary based on the page's HTML structure.
-    scorebox_divs = soup.find("div", class_="scorebox_meta").find_all("div")
+    scorebox_divs = soup.find("div", class_="scorebox_meta")
     # if the first element contains a link, then start from the second element
     try:
-        game_date = scorebox_divs[0].text.strip()  # Monday Jan 10, 2022
+        game_date = scorebox_divs.find("div", string=lambda text: text and "," in text).text.strip() # Monday Jan 10, 2022
         try:
-            game_time = scorebox_divs[1].text.strip()  # 8:15 PM ET
+            game_time = scorebox_divs.find("div", string=lambda text: text and "ET" in text).text.strip() # 8:15 PM ET
         except:
             game_time = ""
-        game_date_time = game_date + " " + game_time  # Monday Jan 10, 2022 8:15 PM ET
+        game_date_time = game_date + " " + game_time # Monday Jan 10, 2022 8:15 PM ET
         if game_date_time:
             # The format string that matches the date_string
             if game_time == "":
                 date_format = "%A %b %d, %Y "
             else:
-                date_format = "%A %b %d, %Y %I:%M %p ET"
-            # convert above date_format to
+                date_format = "%A %b %d, %Y %I:%M %p ET" 
+            # convert above date_format to 
             local_datetime = datetime.strptime(game_date_time, date_format)
 
             # Assume the original time is in 'America/New_York' timezone
@@ -168,40 +168,8 @@ def get_game_time(soup):
         else:
             return None
     except:
-        game_date = scorebox_divs[1].text.strip()  # Monday Jan 10, 2022
-        try:
-            game_time = scorebox_divs[2].text.strip()  # 8:15 PM ET
-        except:
-            game_time = ""
-        game_date_time = game_date + " " + game_time  # Monday Jan 10, 2022 8:15 PM ET
-        if game_date_time:
-            # The format string that matches the date_string
-            if game_time == "":
-                date_format = "%A %b %d, %Y "
-            else:
-                date_format = "%A %b %d, %Y %I:%M %p ET"
-            # convert above date_format to
-            local_datetime = datetime.strptime(game_date_time, date_format)
+        return None
 
-            # Assume the original time is in 'America/New_York' timezone
-            local_timezone = pytz.timezone("America/New_York")
-
-            # Localize the datetime object to the given timezone
-            local_datetime = local_timezone.localize(local_datetime)
-
-            # Convert to UTC
-            utc_datetime = local_datetime.astimezone(pytz.UTC)
-
-            # Define the desired output format
-            output_format_string = "%B %d, %Y, %I:%M %p"
-
-            # Convert the datetime object to the desired format
-            formatted_datetime = utc_datetime.strftime(output_format_string)
-
-            return formatted_datetime
-
-        else:
-            return None
 
 
 def get_game_location(soup):
