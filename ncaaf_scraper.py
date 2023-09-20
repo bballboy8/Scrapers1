@@ -13,10 +13,11 @@ from tqdm import tqdm
 # Initialize a global request counter
 request_counter = 0
 
+
 def increment_request_counter():
     global request_counter
     request_counter += 1  # Increment the counter
-    if request_counter >= 10:  # Check if 24 requests have been made
+    if request_counter >= 20:  # Check if 24 requests have been made
         print("Waiting 61 seconds...")
         time.sleep(61)  # Wait for 61 seconds
         request_counter = 0  # Reset the counter
@@ -132,19 +133,19 @@ def get_game_time(soup):
     scorebox_divs = soup.find("div", class_="scorebox_meta").find_all("div")
     # if the first element contains a link, then start from the second element
     try:
-        game_date = scorebox_divs[0].text.strip() # Monday Jan 10, 2022
+        game_date = scorebox_divs[0].text.strip()  # Monday Jan 10, 2022
         try:
-            game_time = scorebox_divs[1].text.strip() # 8:15 PM ET
+            game_time = scorebox_divs[1].text.strip()  # 8:15 PM ET
         except:
             game_time = ""
-        game_date_time = game_date + " " + game_time # Monday Jan 10, 2022 8:15 PM ET
+        game_date_time = game_date + " " + game_time  # Monday Jan 10, 2022 8:15 PM ET
         if game_date_time:
             # The format string that matches the date_string
             if game_time == "":
                 date_format = "%A %b %d, %Y "
             else:
-                date_format = "%A %b %d, %Y %I:%M %p ET" 
-            # convert above date_format to 
+                date_format = "%A %b %d, %Y %I:%M %p ET"
+            # convert above date_format to
             local_datetime = datetime.strptime(game_date_time, date_format)
 
             # Assume the original time is in 'America/New_York' timezone
@@ -167,19 +168,19 @@ def get_game_time(soup):
         else:
             return None
     except:
-        game_date = scorebox_divs[1].text.strip() # Monday Jan 10, 2022
+        game_date = scorebox_divs[1].text.strip()  # Monday Jan 10, 2022
         try:
-            game_time = scorebox_divs[2].text.strip() # 8:15 PM ET
+            game_time = scorebox_divs[2].text.strip()  # 8:15 PM ET
         except:
             game_time = ""
-        game_date_time = game_date + " " + game_time # Monday Jan 10, 2022 8:15 PM ET
+        game_date_time = game_date + " " + game_time  # Monday Jan 10, 2022 8:15 PM ET
         if game_date_time:
             # The format string that matches the date_string
             if game_time == "":
                 date_format = "%A %b %d, %Y "
             else:
-                date_format = "%A %b %d, %Y %I:%M %p ET" 
-            # convert above date_format to 
+                date_format = "%A %b %d, %Y %I:%M %p ET"
+            # convert above date_format to
             local_datetime = datetime.strptime(game_date_time, date_format)
 
             # Assume the original time is in 'America/New_York' timezone
@@ -201,6 +202,7 @@ def get_game_time(soup):
 
         else:
             return None
+
 
 def get_game_location(soup):
     try:
@@ -213,6 +215,7 @@ def get_game_location(soup):
                 return scorebox_divs[scorebox_divs.index(tag) + 1].text.strip()
     except:
         return None
+
 
 def get_team_game_stats(soup: BeautifulSoup, table_type, team_name, t_type):
     # try finding all tables in comments
@@ -232,7 +235,9 @@ def get_team_game_stats(soup: BeautifulSoup, table_type, team_name, t_type):
                     row_data = {"type": t_type, "caption": caption}
                     cell_tags = row_tag.find_all(["th", "td"])
                     for header, cell_tag in zip(headers, cell_tags):
-                        row_data[header] = cell_tag.text.strip() if cell_tag.text else None                  
+                        row_data[header] = (
+                            cell_tag.text.strip() if cell_tag.text else None
+                        )
                     all_game_stats.append(row_data)
                 final_stats = []
                 for stat in all_game_stats:
@@ -242,7 +247,6 @@ def get_team_game_stats(soup: BeautifulSoup, table_type, team_name, t_type):
     except Exception as e:
         print(e)
         return []
-
 
 
 def populate_fields(soup):
@@ -279,16 +283,31 @@ def populate_fields(soup):
     scraped_data["game_time"] = game_time
 
     home_team_stats_result = []
-    all_stats = ["Rushing &amp; Receiving", "Passing", "Defense &amp; Fumbles", "Kick &amp; Punt Returns", "Kicking &amp; Punting", "Scoring"]
+    all_stats = [
+        "Rushing &amp; Receiving",
+        "Passing",
+        "Defense &amp; Fumbles",
+        "Kick &amp; Punt Returns",
+        "Kicking &amp; Punting",
+        "Scoring",
+    ]
     for stat in all_stats:
-        try:home_team_stats_result.extend(get_team_game_stats(soup, stat, home_team, f"{home_team} {stat} Stats"))
-        except: continue
-    
+        try:
+            home_team_stats_result.extend(
+                get_team_game_stats(soup, stat, home_team, f"{home_team} {stat} Stats")
+            )
+        except:
+            continue
+
     away_team_stats_result = []
     for stat in all_stats:
-        try:away_team_stats_result.extend(get_team_game_stats(soup, stat, away_team, f"{away_team} {stat} Stats"))
-        except: continue
-    
+        try:
+            away_team_stats_result.extend(
+                get_team_game_stats(soup, stat, away_team, f"{away_team} {stat} Stats")
+            )
+        except:
+            continue
+
     scraped_data["home_team_game_stats"] = home_team_stats_result
     scraped_data["away_team_game_stats"] = away_team_stats_result
     return scraped_data
@@ -313,9 +332,15 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 soup = BeautifulSoup(response.content, "html.parser")
                 # find class = game_summaries
                 summary = soup.find("div", {"class": "game_summaries"})
-                if  summary != None and summary.find("h2").text != "Other Games This Week":
+                if (
+                    summary != None
+                    and summary.find("h2").text != "Other Games This Week"
+                ):
                     links = []
-                    try:links.extend(summary.find_all("td", {"class": "right gamelink"}))
+                    try:
+                        links.extend(
+                            summary.find_all("td", {"class": "right gamelink"})
+                        )
                     except:
                         break
                     if links:
@@ -327,7 +352,9 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                             game_response = requests.get(full_url, headers=headers)
                             increment_request_counter()
                             game_links.append(full_url)
-                            game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                            game_info = populate_fields(
+                                BeautifulSoup(game_response.content, "html.parser")
+                            )
                             game_data.append(game_info)
                     break
                 else:
@@ -342,16 +369,17 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     break
         except Exception as e:
             import traceback
+
             print(traceback.format_exc())
             print(f"Failed to fetch {date_url}. Retrying...")
             retries += 1
             time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
-    
+
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2021, 12, 17)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2021, 11, 20)):
     base_url = "https://www.sports-reference.com/cfb/boxscores/index.cgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
