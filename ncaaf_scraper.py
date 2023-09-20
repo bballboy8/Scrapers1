@@ -133,11 +133,17 @@ def get_game_time(soup):
     # if the first element contains a link, then start from the second element
     try:
         game_date = scorebox_divs[0].text.strip() # Monday Jan 10, 2022
-        game_time = scorebox_divs[1].text.strip() # 8:15 PM ET
+        try:
+            game_time = scorebox_divs[1].text.strip() # 8:15 PM ET
+        except:
+            game_time = ""
         game_date_time = game_date + " " + game_time # Monday Jan 10, 2022 8:15 PM ET
         if game_date_time:
             # The format string that matches the date_string
-            date_format = "%A %b %d, %Y %I:%M %p ET" 
+            if game_time == "":
+                date_format = "%A %b %d, %Y "
+            else:
+                date_format = "%A %b %d, %Y %I:%M %p ET" 
             # convert above date_format to 
             local_datetime = datetime.strptime(game_date_time, date_format)
 
@@ -162,11 +168,17 @@ def get_game_time(soup):
             return None
     except:
         game_date = scorebox_divs[1].text.strip() # Monday Jan 10, 2022
-        game_time = scorebox_divs[2].text.strip() # 8:15 PM ET
+        try:
+            game_time = scorebox_divs[2].text.strip() # 8:15 PM ET
+        except:
+            game_time = ""
         game_date_time = game_date + " " + game_time # Monday Jan 10, 2022 8:15 PM ET
         if game_date_time:
             # The format string that matches the date_string
-            date_format = "%A %b %d, %Y %I:%M %p ET" 
+            if game_time == "":
+                date_format = "%A %b %d, %Y "
+            else:
+                date_format = "%A %b %d, %Y %I:%M %p ET" 
             # convert above date_format to 
             local_datetime = datetime.strptime(game_date_time, date_format)
 
