@@ -91,7 +91,8 @@ def get_teams_from_links(soup):
 def parse_record(record_text):
     parts = record_text.split("-")
     if len(parts) == 2:
-        return int(parts[0]), int(parts[1])
+        try: return int(parts[0]), int(parts[1])
+        except: return None, None
     return None, None
 
 
