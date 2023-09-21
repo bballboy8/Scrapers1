@@ -320,7 +320,8 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 for link in links:
                     try:
                         if link is not None:
-                            full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
+                            try:full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
+                            except:continue
                             print(full_url)
                             game_response = requests.get(full_url, headers=headers)
                             increment_request_counter()
