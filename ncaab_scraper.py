@@ -319,17 +319,14 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 links = soup.find_all("td", {"class": "right gamelink"})
                 for link in links:
                     try:
-                        full_url = (
-                            f"https://www.sports-reference.com{link.find('a')['href']}"
-                        )
-                        print(full_url)
-                        game_response = requests.get(full_url, headers=headers)
-                        increment_request_counter()
-                        game_links.append(full_url)
-                        game_info = populate_fields(
-                            BeautifulSoup(game_response.content, "html.parser")
-                        )
-                        game_data.append(game_info)
+                        if link is not None:
+                            full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
+                            print(full_url)
+                            game_response = requests.get(full_url, headers=headers)
+                            increment_request_counter()
+                            game_links.append(full_url)
+                            game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                            game_data.append(game_info)
                     except Exception as e:
                         print(e, "error in game link {}".format(full_url))
                         continue
@@ -345,14 +342,15 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     break
         except Exception as e:
             import traceback
-
             print(traceback.format_exc())
             print(f"Failed to fetch {date_url}. Retrying...")
             retries += 1
             time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
-
+    
     return game_links, game_data
+
+
 
 
 def scrape_data(start_date=date(1975, 10, 23), end_date=date(2023, 5, 30)):
