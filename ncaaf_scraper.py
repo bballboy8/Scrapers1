@@ -133,19 +133,23 @@ def get_game_time(soup):
     scorebox_divs = soup.find("div", class_="scorebox_meta")
     # if the first element contains a link, then start from the second element
     try:
-        game_date = scorebox_divs.find("div", string=lambda text: text and "," in text).text.strip() # Monday Jan 10, 2022
+        game_date = scorebox_divs.find(
+            "div", string=lambda text: text and "," in text
+        ).text.strip()  # Monday Jan 10, 2022
         try:
-            game_time = scorebox_divs.find("div", string=lambda text: text and "ET" in text).text.strip() # 8:15 PM ET
+            game_time = scorebox_divs.find(
+                "div", string=lambda text: text and "ET" in text
+            ).text.strip()  # 8:15 PM ET
         except:
             game_time = ""
-        game_date_time = game_date + " " + game_time # Monday Jan 10, 2022 8:15 PM ET
+        game_date_time = game_date + " " + game_time  # Monday Jan 10, 2022 8:15 PM ET
         if game_date_time:
             # The format string that matches the date_string
             if game_time == "":
                 date_format = "%A %b %d, %Y "
             else:
-                date_format = "%A %b %d, %Y %I:%M %p ET" 
-            # convert above date_format to 
+                date_format = "%A %b %d, %Y %I:%M %p ET"
+            # convert above date_format to
             local_datetime = datetime.strptime(game_date_time, date_format)
 
             # Assume the original time is in 'America/New_York' timezone
@@ -169,7 +173,6 @@ def get_game_time(soup):
             return None
     except:
         return None
-
 
 
 def get_game_location(soup):
@@ -347,7 +350,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2021, 11, 20)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2021, 4, 10)):
     base_url = "https://www.sports-reference.com/cfb/boxscores/index.cgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
