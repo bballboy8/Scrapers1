@@ -96,6 +96,7 @@ def parse_record(record_text):
     return None, None
 
 
+
 def get_team_records(soup):
     scorebox_div = soup.find("div", {"class": "scorebox"})
     records_divs = scorebox_div.find_all(
@@ -103,12 +104,15 @@ def get_team_records(soup):
     )
 
     if len(records_divs) >= 2:
-        away_team_wins, away_team_losses = parse_record(records_divs[0].text)
-        home_team_wins, home_team_losses = parse_record(records_divs[1].text)
+        try:
+            away_team_wins, away_team_losses = parse_record(records_divs[0].text)
+        except:away_team_wins, away_team_losses = None, None
+        
+        try:home_team_wins, home_team_losses = parse_record(records_divs[1].text)
+        except:home_team_wins, home_team_losses = None, None
         return away_team_wins, away_team_losses, home_team_wins, home_team_losses
 
     return None, None, None, None
-
 
 def get_team_scores(soup):
     scores = [
