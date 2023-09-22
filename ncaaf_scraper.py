@@ -91,10 +91,11 @@ def get_teams_from_links(soup):
 def parse_record(record_text):
     parts = record_text.split("-")
     if len(parts) == 2:
-        try: return int(parts[0]), int(parts[1])
-        except: return None, None
+        try:
+            return int(parts[0]), int(parts[1])
+        except:
+            return None, None
     return None, None
-
 
 
 def get_team_records(soup):
@@ -106,13 +107,17 @@ def get_team_records(soup):
     if len(records_divs) >= 2:
         try:
             away_team_wins, away_team_losses = parse_record(records_divs[0].text)
-        except:away_team_wins, away_team_losses = None, None
-        
-        try:home_team_wins, home_team_losses = parse_record(records_divs[1].text)
-        except:home_team_wins, home_team_losses = None, None
+        except:
+            away_team_wins, away_team_losses = None, None
+
+        try:
+            home_team_wins, home_team_losses = parse_record(records_divs[1].text)
+        except:
+            home_team_wins, home_team_losses = None, None
         return away_team_wins, away_team_losses, home_team_wins, home_team_losses
 
     return None, None, None, None
+
 
 def get_team_scores(soup):
     scores = [
@@ -355,7 +360,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2019, 11, 23)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2005, 10, 27)):
     base_url = "https://www.sports-reference.com/cfb/boxscores/index.cgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
