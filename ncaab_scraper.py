@@ -333,6 +333,8 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                             )
                             game_data.append(game_info)
                     except Exception as e:
+                        import traceback
+                        print(traceback.format_exc())
                         print(e, "error in game link {}".format(full_url))
                         continue
                 break
