@@ -42,6 +42,7 @@ def save_to_postgresql(data_list, table_name):
             # if the data is already in the database, skip it
             except:
                 import traceback
+
                 traceback.print_exc()
                 print("Data already in database, skipping...")
                 conn.rollback()
@@ -57,10 +58,11 @@ def save_to_postgresql(data_list, table_name):
         conn.rollback()
         raise Exception
 
+
 def increment_request_counter():
     global request_counter
     request_counter += 1  # Increment the counter
-    if request_counter >= 10:  # Check if 24 requests have been made
+    if request_counter >= 20:  # Check if 24 requests have been made
         print("Waiting 61 seconds...")
         time.sleep(61)  # Wait for 61 seconds
         request_counter = 0  # Reset the counter
@@ -75,7 +77,9 @@ def get_team_game_stats(soup, team_name):
         for comment in comments:
             table_tag = BeautifulSoup(comment, "html.parser")
             # get caption of table
-            caption = table_tag.find("caption", string= lambda text: text and team_name in text)
+            caption = table_tag.find(
+                "caption", string=lambda text: text and team_name in text
+            )
             try:
                 if (team_name + " Table").strip() == caption.text.strip():
                     if x == 0:
@@ -86,14 +90,21 @@ def get_team_game_stats(soup, team_name):
                         table_tag = caption.find_parent("table")
                     header_tags = table_tag.find_all("th", {"scope": "col"})
                     headers = [
-                        tag["data-stat"] for tag in header_tags if "data-stat" in tag.attrs
-                    ] 
+                        tag["data-stat"]
+                        for tag in header_tags
+                        if "data-stat" in tag.attrs
+                    ]
                     row_tags = table_tag.find_all("tr", class_=lambda x: x != "thead")
                     for row_tag in row_tags[1:]:  # Skip the header row
-                        row_data = {"type": table_type, "caption": f"{team_name} Batting and Pitching Stats"}
+                        row_data = {
+                            "type": table_type,
+                            "caption": f"{team_name} Batting and Pitching Stats",
+                        }
                         cell_tags = row_tag.find_all(["th", "td"])
                         for header, cell_tag in zip(headers, cell_tags):
-                            row_data[header] = cell_tag.text.strip() if cell_tag.text else None                  
+                            row_data[header] = (
+                                cell_tag.text.strip() if cell_tag.text else None
+                            )
                         all_game_stats.append(row_data)
                     x += 1
                     if x == 2:
@@ -199,7 +210,7 @@ def get_team_scores(soup):
 def get_game_location(soup):
     # The actual path may vary based on the page's HTML structure.
     scorebox_div = soup.find("div", {"class": "scorebox_meta"})
-    #<div><strong>Venue</strong>: Great American Ball Park</div>
+    # <div><strong>Venue</strong>: Great American Ball Park</div>
     location_div = scorebox_div.find_all("div")
     for div in location_div:
         if "Venue" in div.text:
@@ -224,18 +235,22 @@ def get_game_attendance(soup):
         return None
 
 
-
 def get_game_time(soup):
     # The actual path may vary based on the page's HTML structure.
     scorebox_div = soup.find("div", {"class": "scorebox_meta"})
     game_date = scorebox_div.find_all("div")[0].text
-    game_time = scorebox_div.find_all("div")[1].text.split(": ")[1].replace("Local", "").replace(".", "")
-    game_date_time = game_time.strip() + ", " + game_date #6:40 pm, Tuesday, September 19, 2023
+    game_time = (
+        scorebox_div.find_all("div")[1]
+        .text.split(": ")[1]
+        .replace("Local", "")
+        .replace(".", "")
+    )
+    game_date_time = (
+        game_time.strip() + ", " + game_date
+    )  # 6:40 pm, Tuesday, September 19, 2023
 
     if game_date_time:
-        date_format = (
-            "%I:%M %p, %A, %B %d, %Y"
-        )
+        date_format = "%I:%M %p, %A, %B %d, %Y"
 
         local_datetime = datetime.strptime(game_date_time, date_format)
 
@@ -269,13 +284,14 @@ def get_play_by_play(soup):
                     row_data = {}
                     cell_tags = row_tag.find_all(["th", "td"])
                     for header, cell_tag in zip(headers, cell_tags):
-                        row_data[header] = cell_tag.text.strip() if cell_tag.text else None                  
+                        row_data[header] = (
+                            cell_tag.text.strip() if cell_tag.text else None
+                        )
                     all_game_stats.append(row_data)
                 return all_game_stats
     except Exception as e:
         print(e)
         return []
-
 
 
 def populate_fields(soup):
@@ -329,7 +345,7 @@ def populate_fields(soup):
     scraped_data["home_team_game_stats"] = home_team_game_stats
     scraped_data["away_team_game_stats"] = away_team_game_stats
     # input(scraped_data)
-   # print(scraped_data)
+    # print(scraped_data)
     return scraped_data
 
 
@@ -352,12 +368,16 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 soup = BeautifulSoup(response.content, "html.parser")
                 links = soup.find_all("td", {"class": "right gamelink"})
                 for link in links:
-                    full_url = f"https://www.baseball-reference.com{link.find('a')['href']}"
+                    full_url = (
+                        f"https://www.baseball-reference.com{link.find('a')['href']}"
+                    )
                     print(full_url)
                     game_response = requests.get(full_url, headers=headers)
                     increment_request_counter()
                     game_links.append(full_url)
-                    game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                    game_info = populate_fields(
+                        BeautifulSoup(game_response.content, "html.parser")
+                    )
                     game_data.append(game_info)
 
                 break
@@ -372,17 +392,17 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     break
         except Exception as e:
             import traceback
+
             print(traceback.format_exc())
             print(f"Failed to fetch {date_url}. Retrying...")
             retries += 1
             time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
-    
+
     return game_links, game_data
 
 
-
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 5, 14)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2023, 9, 22)):
     base_url = "https://www.baseball-reference.com/boxes/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
