@@ -316,21 +316,17 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
             if response.status_code == 200:
                 print(f"Fetched {date_url}")
                 soup = BeautifulSoup(response.content, "html.parser")
-                links = soup.find_all("td", {"class": "right gamelink"})
+                links = soup.find_all("td", {"class": "right gamelink"})[50:]
                 for link in links:
                     try:
                         if link is not None:
-                            try:
-                                full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
-                            except:
-                                continue
+                            full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
                             print(full_url)
                             game_response = requests.get(full_url, headers=headers)
                             increment_request_counter()
                             game_links.append(full_url)
-                            game_info = populate_fields(
-                                BeautifulSoup(game_response.content, "html.parser")
-                            )
+                            try:game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                            except:game_info = {}
                             game_data.append(game_info)
                     except Exception as e:
                         import traceback
@@ -349,13 +345,12 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     break
         except Exception as e:
             import traceback
-
             print(traceback.format_exc())
             print(f"Failed to fetch {date_url}. Retrying...")
             retries += 1
             time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
-
+    
     return game_links, game_data
 
 
