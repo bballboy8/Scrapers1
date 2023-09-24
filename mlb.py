@@ -239,18 +239,16 @@ def get_game_time(soup):
     # The actual path may vary based on the page's HTML structure.
     scorebox_div = soup.find("div", {"class": "scorebox_meta"})
     game_date = scorebox_div.find_all("div")[0].text
-    game_time = (
-        scorebox_div.find_all("div")[1]
-        .text.split(": ")[1]
-        .replace("Local", "")
-        .replace(".", "")
-    )
-    game_date_time = (
-        game_time.strip() + ", " + game_date
-    )  # 6:40 pm, Tuesday, September 19, 2023
+    if "Rescheduled" in scorebox_div.find_all("div")[1].text:
+        game_time = scorebox_div.find_all("div")[2].text.split(": ")[1].replace("Local", "").replace(".", "")
+    else:
+        game_time = scorebox_div.find_all("div")[1].text.split(": ")[1].replace("Local", "").replace(".", "")
+    game_date_time = game_time.strip() + ", " + game_date #6:40 pm, Tuesday, September 19, 2023
 
     if game_date_time:
-        date_format = "%I:%M %p, %A, %B %d, %Y"
+        date_format = (
+            "%I:%M %p, %A, %B %d, %Y"
+        )
 
         local_datetime = datetime.strptime(game_date_time, date_format)
 
@@ -264,7 +262,7 @@ def get_game_time(soup):
         utc_datetime = local_datetime.astimezone(pytz.UTC)
         return utc_datetime
     else:
-        return None
+        return Non
 
 
 def get_play_by_play(soup):
@@ -373,8 +371,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     game_response = requests.get(full_url, headers=headers)
                     increment_request_counter()
                     game_links.append(full_url)
-                    try:game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
-                    except: game_info = {}
+                    game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
                     game_data.append(game_info)
 
                 break
