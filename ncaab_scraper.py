@@ -320,14 +320,25 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 for link in links:
                     try:
                         if link is not None:
-                            full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
-                            print(full_url)
-                            game_response = requests.get(full_url, headers=headers)
-                            increment_request_counter()
-                            game_links.append(full_url)
-                            try:game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
-                            except:game_info = {}
-                            game_data.append(game_info)
+                            tries = 0
+                            while True:
+                                full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
+                                print(full_url)
+                                game_response = requests.get(full_url, headers=headers)
+                                if game_response.status_code == 200:
+                                    increment_request_counter()
+                                    game_links.append(full_url)
+                                    try:game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                                    except:game_info = {}
+                                    game_data.append(game_info)
+                                    break
+                                else:                                
+                                    print(f"Failed to fetch {full_url}. Retrying...")
+                                    tries += 1
+                                    if tries > max_retries:
+                                        print(f"Max retries reached for URL {full_url}.")
+                                        break
+
                     except Exception as e:
                         import traceback
                         print(traceback.format_exc())
