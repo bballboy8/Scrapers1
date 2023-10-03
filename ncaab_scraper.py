@@ -48,7 +48,7 @@ def save_to_postgresql(data_list, table_name):
             try:
                 cursor.execute(query, values)
             # if the data is already in the database, skip it
-            except:
+            except ValueError:
                 print("Data already in database, skipping...")
                 conn.rollback()
                 continue
@@ -316,34 +316,37 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
             if response.status_code == 200:
                 print(f"Fetched {date_url}")
                 soup = BeautifulSoup(response.content, "html.parser")
-                links = soup.find_all("td", {"class": "right gamelink"})[50:]
-                for link in links:
-                    try:
-                        if link is not None:
-                            tries = 0
-                            while True:
-                                full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
-                                print(full_url)
-                                game_response = requests.get(full_url, headers=headers)
-                                if game_response.status_code == 200:
-                                    increment_request_counter()
-                                    game_links.append(full_url)
-                                    try:game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
-                                    except:game_info = {}
-                                    game_data.append(game_info)
-                                    break
-                                else:                                
-                                    print(f"Failed to fetch {full_url}. Retrying...")
-                                    tries += 1
-                                    if tries > max_retries:
-                                        print(f"Max retries reached for URL {full_url}.")
-                                        break
+                links = soup.find_all("td", {"class": "right gamelink"})
+                links = [
+                    link
+                    for link in links
+                    if link.find("a")
+                    and link.find("a").get("href")
+                    and "_w" not in link.find("a")["href"]
+                ]
 
-                    except Exception as e:
-                        import traceback
-                        print(traceback.format_exc())
-                        print(e, "error in game link {}".format(full_url))
-                        continue
+                for link in links:
+                    if link is not None:
+                        tries = 0
+                        while True:
+                            full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
+                            print(full_url)
+                            game_response = requests.get(full_url, headers=headers)
+                            if game_response.status_code == 200:
+                                increment_request_counter()
+                                game_links.append(full_url)
+                                game_info = populate_fields(
+                                    BeautifulSoup(game_response.content, "html.parser")
+                                )
+                                game_data.append(game_info)
+                                break
+                            else:
+                                print(f"Failed to fetch {full_url}. Retrying...")
+                                tries += 1
+                                if tries > max_retries:
+                                    print(f"Max retries reached for URL {full_url}.")
+                                    break
+
                 break
 
             elif response.status_code == 429:
@@ -356,16 +359,18 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     break
         except Exception as e:
             import traceback
+
             print(traceback.format_exc())
             print(f"Failed to fetch {date_url}. Retrying...")
             retries += 1
             time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
-    
+
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 29)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 8)):
+    time.sleep(60)
     base_url = "https://www.sports-reference.com/cbb/boxscores/index.cgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
@@ -383,6 +388,8 @@ def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 29)):
     for date_url in tqdm(date_urls):  # Replacing threading with a for loop
         print(f"Fetching and parsing game links for {date_url}")
         game_links, game_data = fetch_and_parse_game_links(date_url)
+        for data in game_data:
+            input(data)
         save_to_postgresql(game_data, "game")
         all_game_links.extend(game_links)
         all_game_data.extend(game_data)

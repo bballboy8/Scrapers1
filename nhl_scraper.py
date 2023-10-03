@@ -12,10 +12,11 @@ import psycopg2
 # Initialize a global request counter
 request_counter = 0
 
+
 def increment_request_counter():
     global request_counter
     request_counter += 1  # Increment the counter
-    if request_counter >= 10:  # Check if 24 requests have been made
+    if request_counter >= 20:  # Check if 24 requests have been made
         print("Waiting 61 seconds...")
         time.sleep(61)  # Wait for 61 seconds
         request_counter = 0  # Reset the counter
@@ -63,8 +64,6 @@ def save_to_postgresql(data_list, table_name):
         print(f"An error occurred while saving to the database: {e}")
         conn.rollback()
         raise Exception
-
-
 
 
 def get_teams_from_links(soup: BeautifulSoup):
@@ -120,8 +119,10 @@ def get_team_records(soup):
             home_team_wins = int(home_record[0])
             home_team_losses = int(home_record[1])
 
-        try: return away_team_wins, away_team_losses, home_team_wins, home_team_losses
-        except: return None, None, None, None
+        try:
+            return away_team_wins, away_team_losses, home_team_wins, home_team_losses
+        except:
+            return None, None, None, None
 
     else:
         return None, None, None, None
@@ -132,8 +133,10 @@ def get_team_scores(soup):
     if len(scores) >= 2:
         away_score = int(scores[0].text)
         home_score = int(scores[1].text)
-        try:return away_score, home_score
-        except: return None, None
+        try:
+            return away_score, home_score
+        except:
+            return None, None
     return None, None
 
 
@@ -141,15 +144,16 @@ def get_game_location(soup):
     # The actual path may vary based on the page's HTML structure.
     scorebox_div = soup.find("div", {"class": "scorebox_meta"})
     # get the 2nd number of div under scorebox_meta
-    location_div = scorebox_div.find_all(
-        "div", string=lambda text: text
-    )[1]
+    location_div = scorebox_div.find_all("div", string=lambda text: text)[1]
 
     if location_div:
-        try:return location_div.text
-        except: return None
+        try:
+            return location_div.text
+        except:
+            return None
     else:
         return None
+
 
 def get_game_attendance(soup):
     # The actual path may vary based on the page's HTML structure.
@@ -171,8 +175,10 @@ def get_game_arena(soup):
     # get the 3 number of div under scorebox_meta
     location_div = scorebox_div.find_all("div")[3]
     if location_div:
-        try:return location_div.text.split(":")[1].strip()
-        except: return None
+        try:
+            return location_div.text.split(":")[1].strip()
+        except:
+            return None
     else:
         return None
 
@@ -197,8 +203,8 @@ def get_game_time(soup):
         date_format = (
             "%B %d, %Y, %I:%M %p"  # The format string that matches the date_string
         )
-        # convert above date_format to 
-        #    "%I:%M %p, %B %d, %Y"  
+        # convert above date_format to
+        #    "%I:%M %p, %B %d, %Y"
         # Convert to datetime object
         local_datetime = datetime.strptime(time_div.text, date_format)
         # Assume the original time is in 'America/New_York' timezone
@@ -214,7 +220,7 @@ def get_game_time(soup):
         return None
 
 
-def get_team_game_stats(soup:BeautifulSoup, team_name:str, stats_type, goalies=0):
+def get_team_game_stats(soup: BeautifulSoup, team_name: str, stats_type, goalies=0):
     try:
         all_game_stats = []
         h2_tags = soup.find_all("h2", string=f"{team_name}")
@@ -239,12 +245,11 @@ def get_team_game_stats(soup:BeautifulSoup, team_name:str, stats_type, goalies=0
                     if "Goalies" in table.find("caption").text:
                         tables.append(table)
                 next_two_tables = [tables[1]]
-    
+
             for table_tag in next_two_tables:
                 caption = table_tag.find("caption").text
                 if not table_tag:
                     continue
-
 
                 header_tags = table_tag.find_all("th", {"scope": "col"})
                 headers = [
@@ -255,13 +260,18 @@ def get_team_game_stats(soup:BeautifulSoup, team_name:str, stats_type, goalies=0
                     row_data = {"type": stats_type, "caption": caption}
                     cell_tags = row_tag.find_all(["th", "td"])
                     for header, cell_tag in zip(headers, cell_tags):
-                        row_data[header] = cell_tag.text.strip() if cell_tag.text else None                  
+                        row_data[header] = (
+                            cell_tag.text.strip() if cell_tag.text else None
+                        )
                     all_game_stats.append(row_data)
                     try:
-                        if row_data['player'] == 'TOTAL':
+                        if row_data["player"] == "TOTAL":
                             final_stats = []
                             for stat in all_game_stats:
-                                if stat['caption'] == f"{team_name} Table" or stat['caption'] == f"{team_name} Advanced Table":
+                                if (
+                                    stat["caption"] == f"{team_name} Table"
+                                    or stat["caption"] == f"{team_name} Advanced Table"
+                                ):
                                     final_stats.append(stat)
                             return final_stats
                     except:
@@ -270,12 +280,16 @@ def get_team_game_stats(soup:BeautifulSoup, team_name:str, stats_type, goalies=0
                 break
         final_stats = []
         for stat in all_game_stats:
-            if stat['caption'] == f"{team_name} Table" or stat['caption'] == f"{team_name} Advanced Table":
+            if (
+                stat["caption"] == f"{team_name} Table"
+                or stat["caption"] == f"{team_name} Advanced Table"
+            ):
                 final_stats.append(stat)
         return final_stats
     except Exception as e:
         print(e)
         return []
+
 
 def populate_fields(soup):
     scraped_data = {}
@@ -305,25 +319,42 @@ def populate_fields(soup):
 
     game_arena = get_game_arena(soup)
     scraped_data["location"] = game_arena
-    
+
     game_time = get_game_time(soup)
     scraped_data["game_time"] = game_time
-    
+
     game_attendance = get_game_attendance(soup)
     scraped_data["attendance"] = game_attendance
 
     # get all game stats
-    away_team_basic_stats = get_team_game_stats(soup, away_team, "Basic Box Score Stats")
-    home_team_basic_stats = get_team_game_stats(soup, home_team, "Basic Box Score Stats")
-    away_team_advance_stats = get_team_game_stats(soup, away_team+ " Advanced", "Advanced Box Score Stats")
-    home_team_advance_stats = get_team_game_stats(soup, home_team+ " Advanced", "Advanced Box Score Stats")
-    away_team_goalie_stats = get_team_game_stats(soup, "Goalies", "Goalies Box Score Stats", 1)
-    home_team_goalie_stats = get_team_game_stats(soup, "Goalies", "Goalies Box Score Stats", 2)
+    away_team_basic_stats = get_team_game_stats(
+        soup, away_team, "Basic Box Score Stats"
+    )
+    home_team_basic_stats = get_team_game_stats(
+        soup, home_team, "Basic Box Score Stats"
+    )
+    away_team_advance_stats = get_team_game_stats(
+        soup, away_team + " Advanced", "Advanced Box Score Stats"
+    )
+    home_team_advance_stats = get_team_game_stats(
+        soup, home_team + " Advanced", "Advanced Box Score Stats"
+    )
+    away_team_goalie_stats = get_team_game_stats(
+        soup, "Goalies", "Goalies Box Score Stats", 1
+    )
+    home_team_goalie_stats = get_team_game_stats(
+        soup, "Goalies", "Goalies Box Score Stats", 2
+    )
 
-    scraped_data["home_team_game_stats"] = home_team_basic_stats + home_team_advance_stats + home_team_goalie_stats
-    scraped_data["away_team_game_stats"] = away_team_basic_stats + away_team_advance_stats + away_team_goalie_stats
+    scraped_data["home_team_game_stats"] = (
+        home_team_basic_stats + home_team_advance_stats + home_team_goalie_stats
+    )
+    scraped_data["away_team_game_stats"] = (
+        away_team_basic_stats + away_team_advance_stats + away_team_goalie_stats
+    )
 
     return scraped_data
+
 
 def fetch_and_parse_game_links(date_url, max_retries=3):
     headers = {
@@ -344,12 +375,16 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 soup = BeautifulSoup(response.content, "html.parser")
                 links = soup.find_all("td", {"class": "right gamelink"})
                 for link in links:
-                    full_url = f"https://www.hockey-reference.com{link.find('a')['href']}"
+                    full_url = (
+                        f"https://www.hockey-reference.com{link.find('a')['href']}"
+                    )
                     print(full_url)
                     game_response = requests.get(full_url, headers=headers)
                     increment_request_counter()
                     game_links.append(full_url)
-                    game_info = populate_fields(BeautifulSoup(game_response.content, "html.parser"))
+                    game_info = populate_fields(
+                        BeautifulSoup(game_response.content, "html.parser")
+                    )
                     game_data.append(game_info)
 
                 break
@@ -364,16 +399,17 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                     break
         except Exception as e:
             import traceback
+
             print(traceback.format_exc())
             print(f"Failed to fetch {date_url}. Retrying...")
             retries += 1
             time.sleep(5)
         time.sleep(uniform(3, 4))  # Wait 3 to 4 seconds between requests
-    
+
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 30)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2023, 3, 31)):
     base_url = "https://www.hockey-reference.com/boxscores/index.fcgi?"
     all_game_links = []
     all_game_data = []  # To store scraped data for all games
@@ -397,6 +433,7 @@ def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 30)):
         print(f"Completed for {date_url}")
 
     return all_game_links, all_game_data
+
 
 if __name__ == "__main__":
     scrape_data()
