@@ -326,26 +326,34 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                 ]
 
                 for link in links:
-                    if link is not None:
-                        tries = 0
-                        while True:
-                            full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
-                            print(full_url)
-                            game_response = requests.get(full_url, headers=headers)
-                            increment_request_counter()
-                            if game_response.status_code == 200:
-                                game_links.append(full_url)
-                                game_info = populate_fields(
-                                    BeautifulSoup(game_response.content, "html.parser")
-                                )
-                                game_data.append(game_info)
-                                break
-                            else:
-                                print(f"Failed to fetch {full_url}. Retrying...")
-                                tries += 1
-                                if tries > max_retries:
-                                    print(f"Max retries reached for URL {full_url}.")
+                    try:
+                        if link is not None:
+                            tries = 0
+                            while True:
+                                full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
+                                print(full_url)
+                                game_response = requests.get(full_url, headers=headers)
+                                increment_request_counter()
+                                if game_response.status_code == 200:
+                                    game_links.append(full_url)
+                                    game_info = populate_fields(
+                                        BeautifulSoup(
+                                            game_response.content, "html.parser"
+                                        )
+                                    )
+                                    game_data.append(game_info)
                                     break
+                                else:
+                                    print(f"Failed to fetch {full_url}. Retrying...")
+                                    tries += 1
+                                    if tries > max_retries:
+                                        print(
+                                            f"Max retries reached for URL {full_url}."
+                                        )
+                                        break
+                    except Exception as e:
+                        print(e)
+                        continue
 
                 break
 
@@ -369,7 +377,7 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
     return game_links, game_data
 
 
-def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 8)):
+def scrape_data(start_date=date(1975, 10, 23), end_date=date(2023, 3, 11)):
     time.sleep(60)
     base_url = "https://www.sports-reference.com/cbb/boxscores/index.cgi?"
     all_game_links = []
