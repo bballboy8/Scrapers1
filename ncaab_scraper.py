@@ -61,7 +61,7 @@ def save_to_postgresql(data_list, table_name):
     except Exception as e:
         print(f"An error occurred while saving to the database: {e}")
         conn.rollback()
-        raise Exception
+        # raise Exception
 
 
 def get_teams_from_links(soup: BeautifulSoup):
@@ -332,8 +332,8 @@ def fetch_and_parse_game_links(date_url, max_retries=3):
                             full_url = f"https://www.sports-reference.com{link.find('a')['href']}"
                             print(full_url)
                             game_response = requests.get(full_url, headers=headers)
+                            increment_request_counter()
                             if game_response.status_code == 200:
-                                increment_request_counter()
                                 game_links.append(full_url)
                                 game_info = populate_fields(
                                     BeautifulSoup(game_response.content, "html.parser")
@@ -389,7 +389,7 @@ def scrape_data(start_date=date(1975, 10, 23), end_date=date(2022, 1, 8)):
         print(f"Fetching and parsing game links for {date_url}")
         game_links, game_data = fetch_and_parse_game_links(date_url)
         for data in game_data:
-            input(data)
+            save_to_postgresql([data], "game")
         save_to_postgresql(game_data, "game")
         all_game_links.extend(game_links)
         all_game_data.extend(game_data)
